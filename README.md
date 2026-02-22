@@ -38,12 +38,14 @@ ESG 점수 기반 기업 랭킹, KPI 비교, 감축률 추세 차트, 배지 시
 ### 4. AI 챗봇
 LLM이 질문을 분석하여 Python 코드를 자동 생성, 실행한 뒤 결과와 시각화를 반환합니다.
 
-![AI 챗봇](page4_chatbot.png)
+<img width="997" height="1001" alt="page4_chatbot_fixed" src="https://github.com/user-attachments/assets/b529f3b5-f5f3-40de-af48-a3dbf8d07724" />
+
 
 ### 5. AI 리포트
 PDF 문서를 업로드하면 Pinecone에 벡터화하여 RAG 기반 보고서를 생성합니다.
 
-![AI 리포트](page5_report.png)
+<img width="997" height="1001" alt="page5_report_fixed" src="https://github.com/user-attachments/assets/2a58eebd-8f08-44ad-8a73-1e06b44c097b" />
+
 
 ## 기술 스택
 
