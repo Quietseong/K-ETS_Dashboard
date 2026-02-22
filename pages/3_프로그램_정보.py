@@ -3,10 +3,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import json
 import os
-import sys
-
-# 상위 디렉토리의 utils 모듈 import를 위한 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 페이지 설정은 main.py에서 처리됨
 
@@ -269,7 +265,7 @@ if "시스템 정보" in selected_category:
         ├── pages/
         │   ├── 1_현황_대시보드.py
         │   ├── 2_구매_전략.py
-        │   └── 4_프로그램_정보.py
+        │   └── 3_프로그램_정보.py
         └── data/
             └── *.csv, *.xlsx
         ```

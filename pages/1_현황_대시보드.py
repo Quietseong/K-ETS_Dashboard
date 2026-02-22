@@ -5,13 +5,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 from datetime import datetime, timedelta
-import sys
+import json
 import os
-
-# 상위 디렉토리의 utils 모듈 import를 위한 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import json 
-import os
+from data_loader import load_emissions_data, load_market_data, load_allocation_data
 
 # 페이지 설정은 main.py에서 처리됨
 
@@ -50,133 +46,6 @@ st.markdown("""
 # 타이틀
 st.markdown('<h1 class="main-header">🌍 탄소배출량 및 배출권 현황</h1>', unsafe_allow_html=True)
 
-# 데이터 로드 함수들
-def load_emissions_data():
-    """국가 온실가스 인벤토리 데이터 로드"""
-    try:
-        # 여러 인코딩 시도
-        for encoding in ['cp949', 'euc-kr', 'utf-8']:
-            try:
-                df = pd.read_csv('data/환경부 온실가스종합정보센터_국가 온실가스 인벤토리 배출량_20250103.csv', encoding=encoding)
-                
-                # 컬럼명 정리
-                df.columns = df.columns.str.strip()
-                
-                # 데이터 구조 확인 및 변환
-                emissions_data = []
-                
-                # CSV 파일의 구조: 첫 번째 컬럼이 연도, 두 번째 컬럼이 총배출량(kt CO2-eq)
-                for _, row in df.iterrows():
-                    try:
-                        year = int(row.iloc[0])  # 첫 번째 컬럼: 연도
-                        
-                        # 각 배출량 데이터 추출 (kt CO2-eq 단위)
-                        total_emission = float(row.iloc[1]) if pd.notna(row.iloc[1]) else 0  # 총배출량
-                        
-                        # 주요 부문별 배출량 (실제 컬럼 구조에 맞게 조정)
-                        # '에너지' 부문은 컬럼 인덱스 3
-                        energy_emission = float(row.iloc[3]) if len(row) > 3 and pd.notna(row.iloc[3]) else 0
-                        
-                        # '산업공정 및 제품사용' 부문은 컬럼 인덱스 45 (check_data.py 결과 참조)
-                        industrial_emission = float(row.iloc[45]) if len(row) > 45 and pd.notna(row.iloc[45]) else 0
-                        
-                        # '농업' 부문은 컬럼 인덱스 96
-                        agriculture_emission = float(row.iloc[96]) if len(row) > 96 and pd.notna(row.iloc[96]) else 0
-                        
-                        # '폐기물' 부문은 컬럼 인덱스 147 (마지막 부분)
-                        waste_emission = float(row.iloc[147]) if len(row) > 147 and pd.notna(row.iloc[147]) else 0
-                        
-                        if year >= 1990 and year <= 2022:
-                            emissions_data.append({
-                                '연도': year,
-                                '총배출량': total_emission,
-                                '에너지': energy_emission,
-                                '산업공정': industrial_emission,
-                                '농업': agriculture_emission,
-                                '폐기물': waste_emission
-                            })
-                    except (IndexError, KeyError, ValueError, TypeError):
-                        continue
-                
-                return pd.DataFrame(emissions_data)
-            except UnicodeDecodeError:
-                continue
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"배출량 데이터 로드 오류: {e}")
-        return pd.DataFrame()
-
-def load_market_data():
-    """배출권 거래데이터 로드"""
-    try:
-        for encoding in ['cp949', 'euc-kr', 'utf-8']:
-            try:
-                df = pd.read_csv('data/배출권_거래데이터.csv', encoding=encoding)
-                
-                # KAU24 데이터만 필터링
-                kau_data = df[df['종목명'] == 'KAU24'].copy()
-                
-                # 데이터 정리
-                kau_data['일자'] = pd.to_datetime(kau_data['일자'])
-                kau_data['시가'] = kau_data['시가'].str.replace(',', '').astype(float)
-                kau_data['거래량'] = kau_data['거래량'].str.replace(',', '').astype(float)
-                kau_data['거래대금'] = kau_data['거래대금'].str.replace(',', '').astype(float)
-                
-                # 시가가 0인 경우 제외 (거래가 없는 날)
-                kau_data = kau_data[kau_data['시가'] > 0]
-                
-                # 연도, 월 컬럼 추가
-                kau_data['연도'] = kau_data['일자'].dt.year
-                kau_data['월'] = kau_data['일자'].dt.month
-                kau_data['연월'] = kau_data['일자'].dt.strftime('%Y-%m')
-                
-                return kau_data
-            except UnicodeDecodeError:
-                continue
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"시장 데이터 로드 오류: {e}")
-        return pd.DataFrame()
-
-def load_allocation_data():
-    """3차 사전할당 데이터 로드"""
-    try:
-        for encoding in ['cp949', 'euc-kr', 'utf-8']:
-            try:
-                df = pd.read_csv('data/01. 3차_사전할당_20250613090824.csv', encoding=encoding)
-                
-                # 컬럼명 정리
-                df.columns = df.columns.str.strip()
-                
-                # 데이터 변환
-                allocation_data = []
-                for _, row in df.iterrows():
-                    try:
-                        company_name = row.iloc[2]  # 업체명 컬럼
-                        industry = row.iloc[1]      # 업종 컬럼
-                        
-                        # 연도별 할당량 추출
-                        for year in [2021, 2022, 2023, 2024, 2025]:
-                            if str(year) in df.columns:
-                                allocation = row[df.columns.get_loc(str(year))]
-                                if pd.notna(allocation) and allocation != 0:
-                                    allocation_data.append({
-                                        '연도': year,
-                                        '업체명': company_name,
-                                        '업종': industry,
-                                        '대상년도별할당량': float(allocation)
-                                    })
-                    except (IndexError, KeyError):
-                        continue
-                
-                return pd.DataFrame(allocation_data)
-            except UnicodeDecodeError:
-                continue
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"할당량 데이터 로드 오류: {e}")
-        return pd.DataFrame()
-
 def load_map_data():
     """지역별 이산화탄소 농도 데이터 로드"""
     try:
@@ -214,7 +83,7 @@ def load_timeseries_data():
         time_series_data = []
         
         # 샘플 시계열 데이터 생성
-        for year in range(2020, 2025):
+        for year in range(2020, 2026):
             for month in range(1, 13):
                 for region in regions:
                     time_series_data.append({
@@ -235,7 +104,7 @@ def load_gauge_data():
     try:
         # 게이지 데이터 생성
         gauge_data = []
-        for year in range(2020, 2025):
+        for year in range(2020, 2026):
             for month in range(1, 13):
                 gauge_data.append({
                     '연도': year,
@@ -624,7 +493,9 @@ with left_col:
             showlegend=False
         )
         st.plotly_chart(fig_gauges, use_container_width=True)
-    
+    else:
+        st.info(f"📊 {selected_year}년 {selected_month}월 데이터가 없습니다. 다른 기간을 선택해주세요.")
+
     st.markdown('</div>', unsafe_allow_html=True)
     
     # 맵 차트 섹션 (샘플 데이터 사용)

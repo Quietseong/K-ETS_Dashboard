@@ -1,0 +1,40 @@
+# 가상환경
+venv/
+.venv/
+env/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+
+# Claude
+.claude/
+
+# 캐시
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 환경변수 (docker-compose env_file로 전달)
+.env
+
+# 테스트
+tests/
+
+# 문서 & 스크립트
+*.md
+run_dashboard.bat
+run_dashboard.ps1
+requirements-dev.txt
+
+# 기타
+*.log
+*.bak
+*.tmp
+bash.exe.stackdump
+test_emissions_chart.html

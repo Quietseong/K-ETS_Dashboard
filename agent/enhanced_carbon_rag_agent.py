@@ -11,6 +11,8 @@ import matplotlib.font_manager as fm
 import seaborn as sns
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
+
+from agent.types import AgentResponse
 from dotenv import load_dotenv
 from matplotlib.ticker import FuncFormatter
 import numpy as np
@@ -37,15 +39,7 @@ except ImportError:
 # 환경변수 로드
 load_dotenv()
 
-# --- 프로젝트 루트를 sys.path에 추가 ---
-# 이 스크립트가 다른 모듈(예: doc_agent)을 올바르게 임포트할 수 있도록 프로젝트의 루트 디렉토리를 시스템 경로에 추가합니다.
-# 이렇게 하면 어떤 위치에서 스크립트를 실행하더라도 모듈을 찾는 데 문제가 발생하지 않습니다.
 try:
-    # 현재 파일의 절대 경로를 기준으로 프로젝트 루트를 찾습니다.
-    # 이 스크립트는 'agent' 폴더 안에 있으므로, 부모 디렉토리의 부모 디렉토리가 프로젝트 루트입니다.
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)  # sys.path의 맨 앞에 추가하여 우선순위를 높입니다.
     from agent.doc_agent import DocumentRAGAgent
 except (ModuleNotFoundError, ImportError):
     print("⚠️ DocumentRAGAgent 임포트 실패. 일부 기능이 제한될 수 있습니다.")
@@ -105,39 +99,12 @@ class EnhancedCarbonRAGAgent:
     
     def _load_data(self):
         """CSV 파일들을 로드하여 통합 DataFrame 생성"""
+        from data_loader import load_combined_analysis_data
+
         try:
-            dataframes = []
-            
-            # 주요 CSV 파일들 로드
-            csv_files = [
-                "환경부 온실가스종합정보센터_국가 온실가스 인벤토리 배출량_20250103.csv",
-                "배출권_거래데이터.csv",
-                "01. 3차_사전할당_20250613090824.csv",
-                "한국에너지공단_산업부문 에너지사용 및 온실가스배출량 통계_20231231.csv"
-            ]
-            
-            for filename in csv_files:
-                filepath = self.data_folder / filename
-                if filepath.exists():
-                    # 다양한 인코딩으로 시도
-                    for encoding in ['cp949', 'euc-kr', 'utf-8', 'utf-8-sig']:
-                        try:
-                            df = pd.read_csv(filepath, encoding=encoding, low_memory=False)
-                            df['데이터소스'] = filename
-                            dataframes.append(df)
-                            print(f"✅ 로드 성공: {filename} ({df.shape})")
-                            break
-                        except UnicodeDecodeError:
-                            continue
-                    else:
-                        print(f"❌ 로드 실패: {filename}")
-            
-            # 통합 DataFrame 생성
-            if dataframes:
-                self.df = pd.concat(dataframes, ignore_index=True, sort=False)
+            self.df = load_combined_analysis_data(self.data_folder)
+            if self.df is not None and not self.df.empty:
                 print(f"📊 통합 데이터: {self.df.shape}")
-                
-                # 데이터 타입 분석 및 최적화
                 self._analyze_and_optimize_data()
             else:
                 # 테스트 데이터 생성
@@ -154,10 +121,9 @@ class EnhancedCarbonRAGAgent:
                 })
                 print("⚠️ 테스트 데이터로 초기화됨")
                 self._analyze_and_optimize_data()
-                
+
         except Exception as e:
             print(f"❌ 데이터 로드 오류: {e}")
-            # 빈 DataFrame으로 초기화
             self.df = pd.DataFrame()
     
     def _analyze_and_optimize_data(self):
@@ -462,33 +428,30 @@ class EnhancedCarbonRAGAgent:
             plt.close('all')  # 오류 시에도 그래프 정리
             return f"코드 실행 오류: {str(e)}", False, None, None, {}
     
-    def ask(self, question: str, section_title: Optional[str] = None) -> Tuple[str, Optional[str], Optional[pd.DataFrame], Optional[object]]:
+    def ask(self, question: str, section_title: Optional[str] = None) -> AgentResponse:
         """
         질문 처리의 전체 과정을 조율(Orchestrate)합니다.
         질문에 답하거나, 주어진 섹션 제목에 대한 보고서 본문을 생성합니다.
 
         1. 코드 생성 -> 2. 코드 실행 -> 3. 문서 기반 답변 조회 -> 4. 최종 답변 조합 및 서술형 변환
-        
+
         Args:
             question (str): 분석을 위한 핵심 질문입니다.
             section_title (Optional[str]): None이 아닌 경우, 최종 결과를 이 제목의 보고서 섹션으로 포맷팅합니다.
 
         Returns:
-            - 최종 답변 또는 보고서 섹션 본문 (str)
-            - 'plot_generated' 또는 None (str)
-            - 테이블 데이터 (pd.DataFrame)
-            - 그래프 객체 (matplotlib.figure.Figure)
+            AgentResponse: answer, visualization, table_data, figure 필드를 가진 NamedTuple
         """
         if not self.llm:
-            return "❌ LLM이 초기화되지 않았습니다. API 키를 확인해주세요.", None, None, None
+            return AgentResponse("❌ LLM이 초기화되지 않았습니다. API 키를 확인해주세요.")
         if self.df is None or self.df.empty:
-            return "❌ 데이터가 로드되지 않았습니다.", None, None, None
+            return AgentResponse("❌ 데이터가 로드되지 않았습니다.")
 
         try:
             # 1단계: 분석 코드 생성
             code = self._generate_code(question)
             if not code:
-                return "❌ 분석 코드를 생성할 수 없습니다.", None, None, None
+                return AgentResponse("❌ 분석 코드를 생성할 수 없습니다.")
 
             # 2단계: 코드 실행하여 사실적 결과 얻기
             analytical_result, has_plot, table_result, figure_obj, namespace = self._execute_code(code)
@@ -547,10 +510,15 @@ class EnhancedCarbonRAGAgent:
                 if document_based_answer and "오류" not in document_based_answer and document_based_answer.strip():
                     final_answer += f"\n\n📄 **관련 문서 정보**\n{document_based_answer}"
             
-            return final_answer, "plot_generated" if has_plot else None, table_result, figure_obj
+            return AgentResponse(
+                answer=final_answer,
+                visualization="plot_generated" if has_plot else None,
+                table_data=table_result,
+                figure=figure_obj,
+            )
 
         except Exception as e:
-            return f"❌ 전체 프로세스에서 오류가 발생했습니다: {str(e)}", None, None, None
+            return AgentResponse(f"❌ 전체 프로세스에서 오류가 발생했습니다: {str(e)}")
 
     def get_available_data_info(self) -> str:
         """데이터 정보 반환 (기존 인터페이스 호환성)"""

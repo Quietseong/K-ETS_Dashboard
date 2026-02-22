@@ -34,7 +34,6 @@ package.json
 payload.json
 
 run_chatbot_test.py
-test*
 test_emissions_chart.html
 
 # Byte-compiled / optimized / DLL files
@@ -366,3 +365,13 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Refactoring handoff document (local only)
+handoff.md
+CLAUD.md
+
+# Claude Code
+.claude/
+
+# Crash dumps
+*.stackdump

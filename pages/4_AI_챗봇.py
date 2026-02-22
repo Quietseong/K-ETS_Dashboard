@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-import sys
 import os
 from dotenv import load_dotenv
 
@@ -22,9 +21,6 @@ try:
 except Exception as e:
     st.error(f"환경변수 로드 중 오류: {e}")
     st.error("⚠️ .env 파일을 확인해주세요. env.example 파일을 참고하여 .env 파일을 생성할 수 있습니다.")
-
-# 상위 디렉토리의 모듈 import를 위한 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 향상된 에이전트 import
 try:
@@ -133,6 +129,23 @@ def load_agent():
         return None
     return EnhancedCarbonRAGAgent(data_folder="data")
 
+# API 키 사전 검증
+_api_keys_ok = bool(os.getenv("UPSTAGE_API_KEY") or os.getenv("OPENAI_API_KEY"))
+
+if not _api_keys_ok:
+    st.warning("🔑 **API 키가 설정되지 않았습니다.**")
+    st.info(
+        "이 챗봇은 LLM API를 사용하여 탄소 데이터를 분석합니다.\n\n"
+        "**필요한 키 (하나 이상 설정):**\n"
+        "- `UPSTAGE_API_KEY` — Upstage Solar LLM (우선 사용)\n"
+        "- `OPENAI_API_KEY` — OpenAI GPT (대체 모델)\n\n"
+        "**설정 방법:**\n"
+        "1. 프로젝트 루트의 `env.example`을 `.env`로 복사\n"
+        "2. API 키 값 입력\n"
+        "3. 앱 재시작"
+    )
+    st.stop()
+
 # 에이전트 로드
 if AGENT_AVAILABLE:
     try:
@@ -142,7 +155,7 @@ if AGENT_AVAILABLE:
                 st.success("✅ AI 에이전트가 성공적으로 초기화되었습니다!")
                 st.session_state.agent = agent
             else:
-                st.error("❌ AI 에이전트 초기화에 실패했습니다.")
+                st.error("❌ AI 에이전트 초기화에 실패했습니다. API 키를 확인해주세요.")
                 st.stop()
     except Exception as e:
         st.error(f"❌ 에이전트 초기화 중 오류 발생: {e}")

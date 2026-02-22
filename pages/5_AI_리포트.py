@@ -1,29 +1,18 @@
 import streamlit as st
-import sys
 import os
 import pdfplumber
 from openai import OpenAI
 from datetime import datetime
 from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pinecone import Pinecone, ServerlessSpec
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 import uuid
-from langchain.chat_models import ChatOpenAI
 from io import BytesIO
 from docx import Document
 from docx.shared import Pt
 
-# 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Streamlit 페이지 설정
-st.set_page_config(
-    page_title="AI_리포트 생성기",
-    page_icon="📋",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# 페이지 설정은 main.py에서 처리됨
 
 # 커스텀 CSS
 st.markdown("""
@@ -37,12 +26,29 @@ st.markdown('<h1 class="main-header">📄 AI 기반 보고서 생성기</h1>', u
 
 # API 키 로딩
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
+openai_api_key = os.getenv("OPENAI_API_KEY")
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
+
+if not openai_api_key:
+    st.warning("🔑 **OPENAI_API_KEY**가 설정되지 않았습니다.")
+    st.info(
+        "이 페이지는 OpenAI API를 사용하여 보고서를 생성합니다.\n\n"
+        "**설정 방법:**\n"
+        "1. 프로젝트 루트의 `env.example`을 `.env`로 복사\n"
+        "2. `OPENAI_API_KEY=sk-...` 형태로 실제 키 입력\n"
+        "3. 앱 재시작"
+    )
+    st.stop()
+
+client = OpenAI(api_key=openai_api_key)
+os.environ["OPENAI_API_KEY"] = openai_api_key
+
+if not pinecone_api_key:
+    st.warning("🔑 **PINECONE_API_KEY**가 설정되지 않았습니다. PDF 업로드 및 RAG 기능을 사용하려면 키를 설정하세요.")
+
 index_name = "carbone-index"
-pc = Pinecone(api_key=pinecone_api_key)
+pc = Pinecone(api_key=pinecone_api_key) if pinecone_api_key else None
 
 # PDF 텍스트 추출
 @st.cache_data

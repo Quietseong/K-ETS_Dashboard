@@ -43,11 +43,7 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
-# --- 프로젝트 루트를 sys.path에 추가 ---
 try:
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if project_root not in sys.path:
-        sys.path.append(project_root)
     from prompts.interpretation import interpretation_prompt_template
     RAG_PROMPT_TEMPLATE = interpretation_prompt_template
     print("✅ DocAgent: 로컬 커스텀 프롬프트를 성공적으로 불러왔습니다: 'prompts/interpretation.py'")
@@ -186,7 +182,7 @@ class DocumentRAGAgent:
         """스크립트 위치를 기반으로 프로젝트 루트 디렉토리를 찾습니다."""
         current_path = Path(__file__).resolve()
         for parent in current_path.parents:
-            if (parent / "requirements.txt").exists() and (parent / "chatbot_app.py").exists():
+            if (parent / "requirements.txt").exists() and (parent / "pyproject.toml").exists():
                 return parent
         raise FileNotFoundError("프로젝트 루트 디렉토리를 찾을 수 없습니다.")
 

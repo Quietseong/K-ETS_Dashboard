@@ -1,0 +1,7 @@
+-r requirements.txt
+
+# 테스트
+pytest>=7.0.0
+
+# 타입 체크 (선택)
+# mypy>=1.0.0
